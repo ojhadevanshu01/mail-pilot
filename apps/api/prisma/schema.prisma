@@ -1,0 +1,121 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  googleId  String?  @unique
+  name      String?
+  email                  String    @unique
+  avatarUrl              String?
+  passwordHash           String?
+  emailVerifiedAt        DateTime? @db.Timestamptz(3)
+  verificationTokenHash  String?   @unique
+  verificationExpiresAt  DateTime? @db.Timestamptz(3)
+  resetTokenHash         String?   @unique
+  resetExpiresAt         DateTime? @db.Timestamptz(3)
+  createdAt              DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt              DateTime  @updatedAt @db.Timestamptz(3)
+  senders                Sender[]
+  sessions               Session[]
+  mailingLists           MailingList[]
+
+  @@index([createdAt])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Sender {
+  id               String            @id @default(cuid())
+  userId           String
+  email            String
+  name             String?
+  smtpPasswordEncrypted String?
+  connectionStatus String @default("NEEDS_SETUP")
+  createdAt        DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime          @updatedAt @db.Timestamptz(3)
+  emails           Email[]
+  schedulingGroups SchedulingGroup[]
+  user             User              @relation(fields: [userId], references: [id])
+
+  @@unique([userId, email])
+  @@index([userId])
+}
+
+model Email {
+  id             String            @id @default(cuid())
+  senderId       String
+  recipient      String
+  recipientData  Json?             @default("{}")
+  subject        String
+  body           String
+  scheduledAt    DateTime          @db.Timestamptz(3)
+  sentAt         DateTime?         @db.Timestamptz(3)
+  status         EmailStatus       @default(SCHEDULED)
+  attempts       Int               @default(0)
+  errorMessage   String?
+  bullmqJobId    String?           @unique
+  idempotencyKey String?           @unique
+  createdAt      DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime          @updatedAt @db.Timestamptz(3)
+  groupId        String?
+  group          SchedulingGroup?  @relation(fields: [groupId], references: [id])
+  sender         Sender            @relation(fields: [senderId], references: [id])
+
+  @@index([senderId, status, scheduledAt])
+  @@index([status, scheduledAt])
+  @@index([recipient])
+  @@index([groupId, status])
+}
+
+model MailingList {
+  id         String   @id @default(cuid())
+  userId     String
+  name       String
+  recipients       String[]
+  recipientDetails Json     @default("[]")
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model SchedulingGroup {
+  id           String   @id @default(cuid())
+  name         String?
+  senderId     String
+  startAt      DateTime @db.Timestamptz(3)
+  delaySeconds Int      @default(0)
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(3)
+  emails       Email[]
+  sender       Sender   @relation(fields: [senderId], references: [id])
+
+  @@index([createdAt])
+  @@index([senderId, createdAt])
+}
+
+enum EmailStatus {
+  SCHEDULED
+  SENT
+  FAILED
+  CANCELLED
+  PROCESSING
+}

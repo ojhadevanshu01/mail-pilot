@@ -1,0 +1,28 @@
+node_modules/
+**/node_modules/
+.next/
+**/.next/
+dist/
+**/dist/
+build/
+coverage/
+
+# Keep real environment files private
+.env
+.env.*
+**/.env
+**/.env.*
+
+# Allow safe example templates
+!.env.example
+!**/.env.example
+!**/.env.local.example
+
+# Generated Prisma client (regenerated during build)
+apps/api/src/generated/prisma/
+
+# TypeScript build cache
+*.tsbuildinfo
+
+# Local build output
+apps/web/out/
